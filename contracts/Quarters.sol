@@ -1,7 +1,7 @@
 pragma solidity ^0.4.18;
 
 import './Ownable.sol';
-import './StandardToken.sol';
+import './RestrictedStandardToken.sol';
 import './Q2.sol';
 import './MigrationTarget.sol';
 
@@ -9,18 +9,14 @@ interface TokenRecipient {
   function receiveApproval(address _from, uint256 _value, address _token, bytes _extraData) external;
 }
 
-contract Quarters is Ownable, StandardToken {
+contract Quarters is Ownable, RestrictedStandardToken {
   // Public variables of the token
   string public name = "Quarters";
   string public symbol = "Q";
   uint8 public decimals = 0; // no decimals, only integer quarters
 
-  uint16 public ethRate = 4000; // Quarters/ETH
+  uint32 public ethRate = 4294967295; // Quarters/ETH
   uint256 public tranche = 40000; // Number of Quarters in initial tranche
-
-  // List of developers
-  // address -> status
-  mapping (address => bool) public developers;
 
   uint256 public outstandingQuarters;
   address public q2;
@@ -53,26 +49,14 @@ contract Quarters is Ownable, StandardToken {
   uint256 public reserveETH=0;
 
   // ETH rate changed
-  event EthRateChanged(uint16 currentRate, uint16 newRate);
-
-  // This notifies clients about the amount burnt
-  event Burn(address indexed from, uint256 value);
+  event EthRateChanged(uint32 currentRate, uint32 newRate);
 
   event QuartersOrdered(address indexed sender, uint256 ethValue, uint256 tokens);
-  event DeveloperStatusChanged(address indexed developer, bool status);
   event TrancheIncreased(uint256 _tranche, uint256 _etherPool, uint256 _outstandingQuarters);
   event MegaEarnings(address indexed developer, uint256 value, uint256 _baseRate, uint256 _tranche, uint256 _outstandingQuarters, uint256 _etherPool);
   event Withdraw(address indexed developer, uint256 value, uint256 _baseRate, uint256 _tranche, uint256 _outstandingQuarters, uint256 _etherPool);
   event BaseRateChanged(uint256 _baseRate, uint256 _tranche, uint256 _outstandingQuarters, uint256 _etherPool,  uint256 _totalSupply);
   event Reward(address indexed _address, uint256 value, uint256 _outstandingQuarters, uint256 _totalSupply);
-
-  /**
-   * developer modifier
-   */
-  modifier onlyActiveDeveloper() {
-    require(developers[msg.sender] == true);
-    _;
-  }
 
   /**
    * Constructor function
@@ -84,14 +68,17 @@ contract Quarters is Ownable, StandardToken {
     uint256 firstTranche
   ) public {
     q2 = _q2;
-    tranche = firstTranche; // number of Quarters to be sold before increasing price
+    if (firstTranche > 0) {
+      tranche = firstTranche; // number of Quarters to be sold before increasing price
+    }
   }
 
-  function setEthRate (uint16 rate) onlyOwner public {
+  function setEthRate (uint32 rate) onlyOwner public {
     // Ether price is set in Wei
     require(rate > 0);
+    uint32 oldRate = ethRate;
     ethRate = rate;
-    emit EthRateChanged(ethRate, rate);
+    emit EthRateChanged(oldRate, ethRate);
   }
 
   /**
@@ -182,14 +169,6 @@ contract Quarters is Ownable, StandardToken {
   }
 
   /**
-   * Developer status
-   */
-  function setDeveloperStatus (address _address, bool status) onlyOwner public {
-    developers[_address] = status;
-    emit DeveloperStatusChanged(_address, status);
-  }
-
-  /**
    * Set allowance for other address and notify
    *
    * Allows `_spender` to spend no more than `_value` tokens in your behalf, and then ping the contract about it
@@ -211,52 +190,9 @@ contract Quarters is Ownable, StandardToken {
   }
 
   /**
-   * Destroy tokens
-   *
-   * Remove `_value` tokens from the system irreversibly
-   *
-   * @param _value the amount of money to burn
-   */
-  function burn(uint256 _value) public returns (bool success) {
-    require(balances[msg.sender] >= _value);   // Check if the sender has enough
-    balances[msg.sender] -= _value;            // Subtract from the sender
-    totalSupply -= _value;                     // Updates totalSupply
-    outstandingQuarters -= _value;              // Update outstanding quarters
-    emit Burn(msg.sender, _value);
-
-    // log rate change
-    emit BaseRateChanged(getBaseRate(), tranche, outstandingQuarters, address(this).balance, totalSupply);
-    return true;
-  }
-
-  /**
-   * Destroy tokens from other account
-   *
-   * Remove `_value` tokens from the system irreversibly on behalf of `_from`.
-   *
-   * @param _from the address of the sender
-   * @param _value the amount of money to burn
-   */
-  function burnFrom(address _from, uint256 _value) public returns (bool success) {
-    require(balances[_from] >= _value);                // Check if the targeted balance is enough
-    require(_value <= allowed[_from][msg.sender]);     // Check allowance
-    balances[_from] -= _value;                         // Subtract from the targeted balance
-    allowed[_from][msg.sender] -= _value;              // Subtract from the sender's allowance
-    totalSupply -= _value;                      // Update totalSupply
-    outstandingQuarters -= _value;              // Update outstanding quarters
-    emit Burn(_from, _value);
-
-    // log rate change
-    emit BaseRateChanged(getBaseRate(), tranche, outstandingQuarters, address(this).balance, totalSupply);
-    return true;
-  }
-
-  /**
    * Buy quarters by sending ethers to contract address (no data required)
    */
-  function () payable public {
-    _buy(msg.sender);
-  }
+  function () payable public {}
 
   function buy() payable public {
     _buy(msg.sender);
@@ -283,6 +219,7 @@ contract Quarters is Ownable, StandardToken {
   // returns number of quarters buyer got
   function _buy(address buyer) internal returns (uint256) {
     require(buyer != address(0));
+    require(buyer == owner);
 
     uint256 nq = (msg.value * ethRate) / (10 ** 18);
     require(nq != 0);
@@ -335,7 +272,7 @@ contract Quarters is Ownable, StandardToken {
     return false;
   }
 
-  function withdraw(uint256 value) onlyActiveDeveloper public {
+  function withdraw(uint256 value) onlyApproved public {
     require(balances[msg.sender] >= value);
 
     uint256 baseRate = getBaseRate();
@@ -420,10 +357,10 @@ contract Quarters is Ownable, StandardToken {
 
     rewards[msg.sender] = 0;
     trueBuy[msg.sender] = 0;
-    developers[msg.sender] = false;
+    approved[msg.sender] = false;
 
     emit Migrate(msg.sender, _amount);
-    MigrationTarget(migrationTarget).migrateFrom(msg.sender, _amount, rewards[msg.sender], trueBuy[msg.sender], developers[msg.sender]);
+    MigrationTarget(migrationTarget).migrateFrom(msg.sender, _amount, rewards[msg.sender], trueBuy[msg.sender], approved[msg.sender]);
   }
 
   //
