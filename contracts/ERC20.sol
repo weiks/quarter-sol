@@ -65,7 +65,7 @@ contract ERC20 is IERC20
         address sender,
         address recipient,
         uint256 amount
-    ) internal virtual {
+    ) internal virtual returns (bool success) {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
 
@@ -77,6 +77,7 @@ contract ERC20 is IERC20
         _balances[recipient] += amount;
 
         emit Transfer(sender, recipient, amount);
+        return true;
     }
     
     function _msgSender() internal view virtual returns (address) {
