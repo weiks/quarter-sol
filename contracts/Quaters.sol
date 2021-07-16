@@ -337,7 +337,7 @@ contract Quarters is Ownable, ERC20 {
   }
 
   function withdraw(uint256 value) onlyActiveDeveloper public {
-    require(_allowances[msg.sender][msg.sender] >= value);
+    require(_balances[msg.sender] >= value);
 
     uint256 baseRate = getBaseRate();
     require(baseRate > 0); // check if base rate > 0
@@ -351,7 +351,7 @@ contract Quarters is Ownable, ERC20 {
       earnings = earningsWithBonus;
     }
 
-    _allowances[msg.sender][msg.sender] -= value;
+    _balances[msg.sender] -= value;
     outstandingQuarters -= value; // update the outstanding Quarters
 
     uint256 etherPool = address(this).balance - earnings;
@@ -412,9 +412,9 @@ contract Quarters is Ownable, ERC20 {
   //
   function migrate() public {
     require(migrationTarget != address(0));
-    uint256 _amount = _allowances[msg.sender][msg.sender];
+    uint256 _amount = _balances[msg.sender];
     require(_amount > 0);
-    _allowances[msg.sender][msg.sender] = 0;
+    _balances[msg.sender] = 0;
 
     _totalSupply = _totalSupply - _amount;
     outstandingQuarters = outstandingQuarters - _amount;

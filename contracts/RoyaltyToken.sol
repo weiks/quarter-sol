@@ -96,6 +96,7 @@ contract RoyaltyToken is ERC20 {
     accounts[msg.sender].balance = 0;
 
     // transfer Royalty amount
-    //msg.sender.transfer(RoyaltyAmount);
+    
+   payable(msg.sender).transfer(RoyaltyAmount); 
   }
 }

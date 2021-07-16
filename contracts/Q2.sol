@@ -72,7 +72,7 @@ contract Q2 is Ownable, RoyaltyToken {
     require(block.number >= stage.startBlock && block.number <= stage.endBlock);
 
     uint256 tokens = msg.value * stage.exchangeRate;
-   // require(totalSupply.add(tokens) <= stage.cap);
+    require(_totalSupply.add(tokens) <= stage.cap);
 
     mintTokens(msg.sender, tokens);
   }
@@ -91,7 +91,7 @@ contract Q2 is Ownable, RoyaltyToken {
     Stage memory currentObj = stages[currentStage];
     if (currentObj.endBlock > 0) {
       // broadcast stage end event
-    //  emit StageEnded(currentStage, totalSupply, address(this).balance);
+      emit StageEnded(currentStage, _totalSupply, address(this).balance);
     }
 
     // increment current stage
@@ -108,11 +108,11 @@ contract Q2 is Ownable, RoyaltyToken {
     stages[currentStage] = s;
 
     // broadcast stage started event
- //   emit StageStarted(currentStage, totalSupply, address(this).balance);
+    emit StageStarted(currentStage, _totalSupply, address(this).balance);
   }
 
   function withdraw() public onlyOwner {
-    //ethWallet.transfer(address(this).balance);
+    payable(ethWallet).transfer(address(this).balance);
   }
 
   function getCurrentStage() view public returns (

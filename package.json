@@ -12,7 +12,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@truffle/hdwallet-provider": "^1.4.1",
-    "truffle-hdwallet-provider-klaytn": "^1.0.13-a"
+    "caver-js": "^1.6.3",
+    "make": "^0.8.1",
+    "truffle-hdwallet-provider-klaytn": "^1.0.13"
   }
 }
